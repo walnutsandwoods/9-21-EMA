@@ -5,12 +5,16 @@ import time
 import asyncio
 from datetime import time as dt_time
 import pytz
+import os
 
 # Import alert functions from the new alerts module
 from alerts import read_config, send_telegram_alert
 
+# --- Use Absolute Path for Files ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+STOCK_LIST_FILE = os.path.join(SCRIPT_DIR, 'nifty500.txt')
+
 # --- Configuration ---
-STOCK_LIST_FILE = 'nifty500.txt'
 TIMEZONE = pytz.timezone('Asia/Kolkata')
 MARKET_START_TIME = dt_time(9, 15)
 MARKET_END_TIME = dt_time(15, 30)
@@ -25,7 +29,7 @@ def read_stock_symbols():
             symbols = [symbol.strip() + ".NS" for symbol in symbols_str.split(',') if symbol.strip()]
             return symbols
     except FileNotFoundError:
-        print(f"Error: Stock list file '{STOCK_LIST_FILE}' not found.")
+        print(f"Error: Stock list file not found at path: {STOCK_LIST_FILE}")
         return []
 
 def scan_for_crossovers(symbols, bot_token, chat_id):
@@ -95,7 +99,6 @@ def scan_for_crossovers(symbols, bot_token, chat_id):
     # Send alerts
     if bullish_crossovers:
         message = "📈 Bullish Crossover Alert:\n" + "\n".join(bullish_crossovers)
-        # We need to use asyncio.run() to call the async function from our sync code
         asyncio.run(send_telegram_alert(bot_token, chat_id, message))
 
     if bearish_crossovers:
@@ -116,7 +119,7 @@ def main():
         return
 
     print("--- Stock Scanner Initialized ---")
-    print(f"Scanning {len(symbols)} stocks from '{STOCK_LIST_FILE}'.")
+    print(f"Scanning {len(symbols)} stocks from '{os.path.basename(STOCK_LIST_FILE)}'.")
     print(f"Alerts will be sent via Telegram.")
     print(f"Scanner will run every {SCAN_INTERVAL_MINUTES} minutes during market hours.")
 

@@ -3,40 +3,31 @@ import telegram
 import asyncio
 import os
 
-CONFIG_FILE = 'config.ini'
+# --- Use Absolute Path for Config File ---
+# This makes the script runnable from any directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(SCRIPT_DIR, 'config.ini')
 
 def read_config():
     """Reads Telegram configuration from config.ini"""
-
-    # --- New Debugging Logic ---
-    current_directory = os.getcwd()
-    print(f"\n--- Debugging File Path ---")
-    print(f"I am running in this directory: {current_directory}")
-    print(f"I am looking for a file named '{CONFIG_FILE}' in this directory.")
-
-    try:
-        files_in_dir = os.listdir(current_directory)
-        print("Files and folders I can see here:")
-        for name in files_in_dir:
-            print(f"- {name}")
-    except Exception as e:
-        print(f"Could not list files in the directory. Error: {e}")
-    print(f"---------------------------\n")
-    # --- End Debugging Logic ---
-
     config = configparser.ConfigParser()
-    # Check if the file exists and read it
-    if not config.read(CONFIG_FILE):
-        print(f"Error: Configuration file '{CONFIG_FILE}' not found or is empty.")
-        print("Please make sure you have created this file and added your credentials.")
+
+    if not os.path.exists(CONFIG_FILE):
+        print(f"Error: Configuration file not found at path: {CONFIG_FILE}")
+        print("Please ensure 'config.ini' exists in the same directory as the script.")
         return None, None
 
+    config.read(CONFIG_FILE)
+
     if 'telegram' in config and 'bot_token' in config['telegram'] and 'chat_id' in config['telegram']:
-        # Add a check for placeholder values
-        if 'YOUR_BOT_TOKEN_HERE' in config['telegram']['bot_token'] or 'YOUR_CHAT_ID_HERE' in config['telegram']['chat_id']:
+        bot_token = config['telegram']['bot_token']
+        chat_id = config['telegram']['chat_id']
+
+        if 'YOUR_BOT_TOKEN_HERE' in bot_token or 'YOUR_CHAT_ID_HERE' in chat_id:
             print("Error: Please replace the placeholder values in your config.ini file with your actual credentials.")
             return None, None
-        return config['telegram']['bot_token'], config['telegram']['chat_id']
+
+        return bot_token, chat_id
     else:
         print("Error: A [telegram] section with 'bot_token' and 'chat_id' was not found in config.ini.")
         return None, None
