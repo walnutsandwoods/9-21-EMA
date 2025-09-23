@@ -1,11 +1,29 @@
 import configparser
 import telegram
 import asyncio
+import os
 
 CONFIG_FILE = 'config.ini'
 
 def read_config():
     """Reads Telegram configuration from config.ini"""
+
+    # --- New Debugging Logic ---
+    current_directory = os.getcwd()
+    print(f"\n--- Debugging File Path ---")
+    print(f"I am running in this directory: {current_directory}")
+    print(f"I am looking for a file named '{CONFIG_FILE}' in this directory.")
+
+    try:
+        files_in_dir = os.listdir(current_directory)
+        print("Files and folders I can see here:")
+        for name in files_in_dir:
+            print(f"- {name}")
+    except Exception as e:
+        print(f"Could not list files in the directory. Error: {e}")
+    print(f"---------------------------\n")
+    # --- End Debugging Logic ---
+
     config = configparser.ConfigParser()
     # Check if the file exists and read it
     if not config.read(CONFIG_FILE):
