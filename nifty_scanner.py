@@ -2,30 +2,19 @@ import yfinance as yf
 import pandas as pd
 import schedule
 import time
-import configparser
-import telegram
 import asyncio
 from datetime import time as dt_time
 import pytz
 
+# Import alert functions from the new alerts module
+from alerts import read_config, send_telegram_alert
+
 # --- Configuration ---
-CONFIG_FILE = 'config.ini'
 STOCK_LIST_FILE = 'nifty500.txt'
 TIMEZONE = pytz.timezone('Asia/Kolkata')
 MARKET_START_TIME = dt_time(9, 15)
 MARKET_END_TIME = dt_time(15, 30)
 SCAN_INTERVAL_MINUTES = 10
-
-def read_config():
-    """Reads Telegram configuration from config.ini"""
-    config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
-    if 'telegram' in config and 'bot_token' in config['telegram'] and 'chat_id' in config['telegram']:
-        return config['telegram']['bot_token'], config['telegram']['chat_id']
-    else:
-        print("Error: Telegram configuration not found in config.ini.")
-        print("Please make sure your config.ini file has a [telegram] section with 'bot_token' and 'chat_id'.")
-        return None, None
 
 def read_stock_symbols():
     """Reads stock symbols from the specified file."""
@@ -38,15 +27,6 @@ def read_stock_symbols():
     except FileNotFoundError:
         print(f"Error: Stock list file '{STOCK_LIST_FILE}' not found.")
         return []
-
-async def send_telegram_alert(bot_token, chat_id, message):
-    """Sends a message to a Telegram user or group."""
-    try:
-        bot = telegram.Bot(token=bot_token)
-        await bot.send_message(chat_id=chat_id, text=message)
-        print(f"Telegram alert sent: {message}")
-    except Exception as e:
-        print(f"Error sending Telegram alert: {e}")
 
 def scan_for_crossovers(symbols, bot_token, chat_id):
     """Scans for EMA crossovers and sends alerts."""
@@ -108,7 +88,6 @@ def scan_for_crossovers(symbols, bot_token, chat_id):
 
         except KeyError:
             # This can happen if a symbol fails to download
-            # print(f"No data for {symbol} in the downloaded dataframe.")
             pass
         except Exception as e:
             print(f"Could not process {symbol}: {e}")
@@ -116,6 +95,7 @@ def scan_for_crossovers(symbols, bot_token, chat_id):
     # Send alerts
     if bullish_crossovers:
         message = "📈 Bullish Crossover Alert:\n" + "\n".join(bullish_crossovers)
+        # We need to use asyncio.run() to call the async function from our sync code
         asyncio.run(send_telegram_alert(bot_token, chat_id, message))
 
     if bearish_crossovers:

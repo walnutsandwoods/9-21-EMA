@@ -3,5 +3,3 @@ pandas
 python-telegram-bot
 schedule
 pytz
-# configparser is part of the Python standard library
-# asyncio is part of the Python standard library
