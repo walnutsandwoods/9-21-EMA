@@ -15,6 +15,7 @@ TIMEZONE = pytz.timezone('Asia/Kolkata')
 MARKET_START_TIME = dt_time(9, 15)
 MARKET_END_TIME = dt_time(15, 30)
 SCAN_INTERVAL_MINUTES = 10
+BATCH_SIZE = 50
 
 def read_config():
     """Reads Telegram configuration from config.ini"""
@@ -49,71 +50,74 @@ async def send_telegram_alert(bot_token, chat_id, message):
         print(f"Error sending Telegram alert: {e}")
 
 def scan_for_crossovers(symbols, bot_token, chat_id):
-    """Scans for EMA crossovers and sends alerts."""
+    """Scans for EMA crossovers and sends alerts by processing stocks in batches."""
     print(f"\n--- Running scanner at {pd.Timestamp.now(tz=TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')} ---")
     if not symbols:
         print("No symbols to scan.")
         return
 
-    try:
-        # Fetch data for all stocks at once. Period needs to be at least 2 days to get previous day's close
-        data = yf.download(symbols, period="60d", progress=False)
-        if data.empty:
-            print("Could not download any stock data.")
-            return
-    except Exception as e:
-        print(f"Failed to download stock data: {e}")
-        return
-
     bullish_crossovers = []
     bearish_crossovers = []
+    total_symbols = len(symbols)
+    num_batches = (total_symbols + BATCH_SIZE - 1) // BATCH_SIZE
 
-    for symbol in symbols:
+    for i in range(0, total_symbols, BATCH_SIZE):
+        batch_symbols = symbols[i:i + BATCH_SIZE]
+        print(f"--- Processing batch {i//BATCH_SIZE + 1}/{num_batches} ({len(batch_symbols)} symbols) ---")
+
         try:
-            # Extract close prices for the symbol
-            close_prices = data['Close'][symbol].dropna()
-
-            if len(close_prices) < 22: # Need enough data for 21-day EMA
-                continue
-
-            # Calculate EMAs
-            ema9 = close_prices.ewm(span=9, adjust=False).mean()
-            ema21 = close_prices.ewm(span=21, adjust=False).mean()
-
-            # Get the last two values
-            prev_ema9 = ema9.iloc[-2]
-            curr_ema9 = ema9.iloc[-1]
-            prev_ema21 = ema21.iloc[-2]
-            curr_ema21 = ema21.iloc[-1]
-
-            # Check for NaN values
-            if any(pd.isna(v) for v in [prev_ema9, curr_ema9, prev_ema21, curr_ema21]):
-                continue
-
-            # --- Bullish Crossover ---
-            # Was below, now above
-            if prev_ema9 <= prev_ema21 and curr_ema9 > curr_ema21:
-                # We also need to check the original condition: open > 9ema
-                latest_open = data['Open'][symbol].iloc[-1]
-                if pd.notna(latest_open) and latest_open > curr_ema9:
-                    bullish_crossovers.append(symbol)
-
-            # --- Bearish Crossover ---
-            # Was above, now below
-            if prev_ema9 >= prev_ema21 and curr_ema9 < curr_ema21:
-                # We also need to check the original condition: open < 9ema
-                latest_open = data['Open'][symbol].iloc[-1]
-                if pd.notna(latest_open) and latest_open < curr_ema9:
-                    bearish_crossovers.append(symbol)
-
-        except KeyError:
-            # This can happen if a symbol fails to download
-            # print(f"No data for {symbol} in the downloaded dataframe.")
-            pass
+            # Fetch data for the current batch
+            data = yf.download(batch_symbols, period="60d", progress=False)
+            if data.empty:
+                print("Could not download any stock data for this batch.")
+                continue  # Move to the next batch
         except Exception as e:
-            print(f"Could not process {symbol}: {e}")
+            print(f"Failed to download stock data for this batch: {e}")
+            continue  # Move to the next batch
 
-    # Send alerts
+        for symbol in batch_symbols:
+            try:
+                # Extract close prices for the symbol
+                close_prices = data['Close'][symbol].dropna()
+
+                if len(close_prices) < 22:  # Need enough data for 21-day EMA
+                    continue
+
+                # Calculate EMAs
+                ema9 = close_prices.ewm(span=9, adjust=False).mean()
+                ema21 = close_prices.ewm(span=21, adjust=False).mean()
+
+                # Get the last two values
+                prev_ema9, curr_ema9 = ema9.iloc[-2], ema9.iloc[-1]
+                prev_ema21, curr_ema21 = ema21.iloc[-2], ema21.iloc[-1]
+
+                # Check for NaN values
+                if any(pd.isna(v) for v in [prev_ema9, curr_ema9, prev_ema21, curr_ema21]):
+                    continue
+
+                # --- Bullish Crossover ---
+                # Was below, now above
+                if prev_ema9 <= prev_ema21 and curr_ema9 > curr_ema21:
+                    latest_open = data['Open'][symbol].iloc[-1]
+                    if pd.notna(latest_open) and latest_open > curr_ema9:
+                        bullish_crossovers.append(symbol)
+
+                # --- Bearish Crossover ---
+                # Was above, now below
+                if prev_ema9 >= prev_ema21 and curr_ema9 < curr_ema21:
+                    latest_open = data['Open'][symbol].iloc[-1]
+                    if pd.notna(latest_open) and latest_open < curr_ema9:
+                        bearish_crossovers.append(symbol)
+
+            except KeyError:
+                # This can happen if a symbol fails to download or has no data
+                # print(f"No data for {symbol} in the downloaded dataframe.")
+                pass
+            except Exception as e:
+                print(f"Could not process {symbol}: {e}")
+
+    # Send alerts after processing all batches
+    print("\n--- Scan complete. Sending alerts... ---")
     if bullish_crossovers:
         message = "📈 Bullish Crossover Alert:\n" + "\n".join(bullish_crossovers)
         asyncio.run(send_telegram_alert(bot_token, chat_id, message))
