@@ -2,25 +2,29 @@
 import os
 import telegram
 import asyncio
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
+import streamlit as st  # Add this import for st.secrets
 
 def get_telegram_config():
-    """Reads Telegram configuration from .env file"""
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    """Reads Telegram configuration from Streamlit secrets (or fallback to env for local testing)"""
+    # Try Streamlit secrets first (for cloud deployment)
+    if hasattr(st, 'secrets'):
+        bot_token = st.secrets.get('TELEGRAM_BOT_TOKEN')
+        chat_id = st.secrets.get('TELEGRAM_CHAT_ID')
+    else:
+        # Fallback to .env for local runs (using dotenv)
+        from dotenv import load_dotenv
+        load_dotenv()
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        chat_id = os.getenv('TELEGRAM_CHAT_ID')
     
     if not bot_token or not chat_id:
-        print("Error: Telegram configuration not found in .env file")
-        print("Please make sure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set in your .env file")
+        print("Error: Telegram configuration not found")
         return None, None
     
     return bot_token, chat_id
 
 async def send_telegram_alert(message):
-    """Sends a message to Telegram using credentials from .env"""
+    """Sends a message to Telegram using credentials from secrets/env"""
     bot_token, chat_id = get_telegram_config()
     
     if not bot_token or not chat_id:
