@@ -3,5 +3,6 @@ pandas
 python-telegram-bot
 schedule
 pytz
+python-dotenv==1.0.1  # Add this line
 # configparser is part of the Python standard library
 # asyncio is part of the Python standard library
