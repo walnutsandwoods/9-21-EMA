@@ -42,9 +42,9 @@ if st.button("Run Scan"):
 if st.session_state.last_run:
     st.write(f"Last scan run at: {st.session_state.last_run.strftime('%H:%M:%S IST')}")
 
-# Optional: Auto-refresh (simulated every 10 minutes, but limited by Streamlit's rerun)
+# Optional: Auto-refresh simulation
 if st.session_state.last_run and (pd.Timestamp.now(tz=TIMEZONE) - st.session_state.last_run).total_seconds() >= SCAN_INTERVAL_MINUTES * 60:
-    st.experimental_rerun()  # Triggers a rerun if 10 minutes passed
+    st.rerun()  # Updated to st.rerun() for Streamlit v1.28+
 
 # Startup message
 if st.session_state.last_run is None:
