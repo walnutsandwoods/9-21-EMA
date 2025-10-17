@@ -2,7 +2,7 @@
 import os
 import telegram
 import asyncio
-import streamlit as st
+import streamlit as st  # For st.secrets on cloud
 
 def get_telegram_config():
     """Reads Telegram configuration from Streamlit secrets or .env file"""
